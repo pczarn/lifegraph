@@ -3,7 +3,6 @@
 var dotSrc = 'graph { a -- b }';
 
 var graphviz;
-var app = Vue.new();
 
 function startApp() {
 }
@@ -12,6 +11,7 @@ function render() {
   graphviz
     .renderDot(dotSrc, startApp);
 }
+
 window.onload = function () {
   graphviz = d3.select("#graph").graphviz();
   graphviz
