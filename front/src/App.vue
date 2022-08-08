@@ -12,15 +12,14 @@
 </template>
 
 <script>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, nextTick } from 'vue'
 import gql from 'graphql-tag'
 import { useQuery } from '@vue/apollo-composable'
 import * as d3 from "d3";
 import "d3-graphviz";
 
-function attributer(datum, index, nodes) {
-  console.log(index);
-  console.log(nodes);
+// function attributer(datum, _index, _nodes) {
+function attributer(datum) {
   var selection = d3.select(this);
   if (datum.tag == "svg") {
     var margin = 10;
@@ -127,6 +126,8 @@ function encodedLetterToNumber(encoded) {
     return num + dictionary.length * encodedLetterToNumber(encoded.substring(1))
 }
 
+let graphviz = null
+
 export default {
   name: 'App',
   mounted () {
@@ -160,13 +161,14 @@ export default {
       nodesError,
       selectedNode: ref(null),
       state: reactive({ kind: "waiting", string: "" }),
+      graphviz: ref(null),
     }
   },
   methods: {
     onWindowLoad() {
       console.log('window load');
-      this.graphviz = d3.select("#graph").graphviz();
-      this.graphviz
+      graphviz = d3.select("#graph").graphviz();
+      graphviz
         .attributer(attributer)
         .transition(function () {
           return d3.transition().duration(300);
@@ -199,8 +201,9 @@ export default {
       }
     },
     render() {
-      console.log('render')
-      // this.graphviz.renderDot(this.dotDocument);
+      console.log('render', this.dotDocument)
+      if(graphviz)
+        graphviz.renderDot(this.dotDocument);
       // console.log("translateTo", this.graphviz.translateTo, this.graphviz.zoom);
     },
     interactive() {
@@ -212,12 +215,26 @@ export default {
             // clicked node number
             console.log(parseInt(node.getAttribute("id").substring(4)));
           });
-      d3.select("#graph").selectAll(".node").append((node) => {
-        const nodeIndex = parseInt(node.attributes.id.substring(4)) - 1
-        const attrs = node.children[3].attributes
-        console.log("a", node.children.length)
-        return this.makeNodeLabel(nodeIndex, parseFloat(attrs.cx) - parseFloat(attrs.rx), parseFloat(attrs.cy) - parseFloat(attrs.ry))
+      d3.select("#graph").append(() => {
+        // console.log(svg.innerHTML)
+        return this.makeStyling()
       })
+      // d3.select("#graph").selectAll(".node").append((node) => {
+      //   const nodeIndex = parseInt(node.attributes.id.substring(4)) - 1
+      //   const attrs = node.children[3].attributes
+      //   console.log("a", node.children.length)
+      //   return this.makeNodeLabel(nodeIndex, parseFloat(attrs.cx) - parseFloat(attrs.rx), parseFloat(attrs.cy) - parseFloat(attrs.ry))
+      // })
+      nextTick(() => {
+        // nextTick(() => {
+          // d3.select("#graph").selectAll(".node").append((node) => {
+          //   // const nodeIndex = parseInt(node.attributes.id.substring(4)) - 1
+          //   const attrs = node.children[3].attributes
+          //   console.log("b", node.children.length)
+          //   return this.makeNodeLabelBackground(parseFloat(attrs.cx) - parseFloat(attrs.rx), parseFloat(attrs.cy) - parseFloat(attrs.ry), 5, 5)
+          // })
+        // });
+      });
     },
     makeNodeLabel(index, x, y) {
       const xmlns = "http://www.w3.org/2000/svg"
@@ -236,6 +253,26 @@ export default {
       rect.setAttributeNS(null, "width", width)
       rect.setAttributeNS(null, "height", height)
       return rect
+    },
+    makeStyling() {
+      const content = `
+          <![CDATA[
+              .shorthand {
+                  color: red;
+              }
+              circle.circleClass {
+                  stroke: #006600;
+                  fill:   #cc0000;
+              }
+          ]]>
+      `
+      const xmlns = "http://www.w3.org/2000/svg"
+      const style = document.createElementNS(xmlns, "style")
+      // style.innerHTML = content
+      style.appendChild(document.createTextNode(content))
+      style.setAttributeNS(null, "type", "text/css")
+      console.log("STYLING", style)
+      return style
     }
   },
   computed: {
@@ -273,9 +310,9 @@ export default {
         let xlabel = null
         if (node.isInput && node.shorthandText) {
           if (node.highlightedText) {
-            xlabel = `<span class="shorthand"><span class="highlighted">${node.highlightedText}</span>${node.shorthandText}</span>`
+            xlabel = `<font class="shorthand"><font class="highlighted">${node.highlightedText}</font>${node.shorthandText}</font>`
           } else {
-            xlabel = `<span class="shorthand">${node.shorthandText}</span>`
+            xlabel = `<font class="shorthand">${node.shorthandText}</font>`
           }
         }
         let fillcolor = "white"
@@ -283,7 +320,7 @@ export default {
           fillcolor = "red"
         }
         if (xlabel) {
-          return `${node.label} [xlabel=${xlabel} fillcolor="${fillcolor}" style=filled]`
+          return `${node.label} [xlabel=<${xlabel}> fillcolor="${fillcolor}" style=filled]`
         } else {
           return `${node.label} [fillcolor="${fillcolor}" style=filled]`
         }
