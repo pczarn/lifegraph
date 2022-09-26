@@ -12,7 +12,7 @@
 </template>
 
 <script>
-import { computed, reactive, ref, nextTick } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import gql from 'graphql-tag'
 import { useQuery } from '@vue/apollo-composable'
 import * as d3 from "d3";
@@ -162,6 +162,7 @@ export default {
       selectedNode: ref(null),
       state: reactive({ kind: "waiting", string: "" }),
       graphviz: ref(null),
+      madeStyle: false,
     }
   },
   methods: {
@@ -173,6 +174,7 @@ export default {
         .transition(function () {
           return d3.transition().duration(300);
         })
+        .on("start", this.makeBackground)
         .on("end", this.interactive);
 
       console.log('window load')
@@ -197,6 +199,9 @@ export default {
           }
         } else if (ev.code === "Backspace") {
           this.state.string = this.state.string.slice(0, -1)
+        } else if (ev.code === "Escape") {
+          this.state.kind = "waiting"
+          this.state.string = ""
         }
       }
     },
@@ -204,6 +209,7 @@ export default {
       console.log('render', this.dotDocument)
       if(graphviz)
         graphviz.renderDot(this.dotDocument);
+      // setTimeout(this.., 20);
       // console.log("translateTo", this.graphviz.translateTo, this.graphviz.zoom);
     },
     interactive() {
@@ -215,26 +221,86 @@ export default {
             // clicked node number
             console.log(parseInt(node.getAttribute("id").substring(4)));
           });
-      d3.select("#graph").append(() => {
-        // console.log(svg.innerHTML)
-        return this.makeStyling()
-      })
+      if (!this.madeStyle) {
+        this.madeStyle = true;
+        this.makeStyling()
+        // d3.select("#graph").append(() => {
+        //   return this.makeStyling()
+        // })
+      }
+      // this.makeBackground()
+      // this.makeBackgroundEnd()
       // d3.select("#graph").selectAll(".node").append((node) => {
       //   const nodeIndex = parseInt(node.attributes.id.substring(4)) - 1
       //   const attrs = node.children[3].attributes
       //   console.log("a", node.children.length)
       //   return this.makeNodeLabel(nodeIndex, parseFloat(attrs.cx) - parseFloat(attrs.rx), parseFloat(attrs.cy) - parseFloat(attrs.ry))
       // })
-      nextTick(() => {
+      // nextTick(() => {
         // nextTick(() => {
-          // d3.select("#graph").selectAll(".node").append((node) => {
-          //   // const nodeIndex = parseInt(node.attributes.id.substring(4)) - 1
-          //   const attrs = node.children[3].attributes
-          //   console.log("b", node.children.length)
-          //   return this.makeNodeLabelBackground(parseFloat(attrs.cx) - parseFloat(attrs.rx), parseFloat(attrs.cy) - parseFloat(attrs.ry), 5, 5)
-          // })
+
         // });
-      });
+      // });
+    },
+    // makeBackgroundStart() {
+    //   if (this.state.kind == "input") {
+    //     setTimeout(this.makeBackground, 16)
+    //   }
+    // },
+    // makeBackgroundEnd() {
+    //   if (this.state.kind == "input") {
+    //     setTimeout(this.makeBackground, 16)
+    //   }
+    // },
+    makeBackground() {
+      // d3.select("#graph").selectAll(".node").append((node) => {
+      //   const nodeIndex = parseInt(node.attributes.id.substring(4)) - 1
+      //   const attrs = node.children[3].attributes
+      //   console.log("a", node.children.length)
+      //   return this.makeNodeLabel(nodeIndex, parseFloat(attrs.cx) - parseFloat(attrs.rx), parseFloat(attrs.cy) - parseFloat(attrs.ry))
+      // })
+      // ---
+      // for(const node of d3.select("#graph").selectAll(".node").nodes()) {
+      //   console.log(node)
+      //   if (node.children.length === 4) {
+      //     const child = node.children[3]
+      //     // const attrs = child.attributes
+      //     console.log(child.node)
+      //     const bbox = child.getBBox()
+      //     node.appendChild(this.makeNodeLabelBackground(bbox.x, bbox.y, bbox.width, bbox.height))
+      //   }
+      // }
+      // ---
+
+      // setTimeout(() => {
+
+        const thisVue = this
+        setTimeout(() => {
+          d3
+          .select("#graph")
+          .selectAll(".node")
+          .filter((node) => { return node.children.length === 9 })
+          .select(function(node) {
+            const n = document.getElementById(node.attributes.id)
+            const child = n.children[3]
+            const bbox = child.getBBox()
+            const elem = thisVue.makeNodeLabelBackground(bbox.x, parseFloat(bbox.y) - 5, bbox.width, bbox.height)
+            return this.insertBefore(elem, this.children[3])
+          })
+          .transition()
+          .duration(300)
+          .style("fill", "#cc2200")
+        }, 80)
+      //   const s2 = s.filter((node) => { return node.children.length === 9 })
+      // console.log("MAKEBACKGROUND", s, s2)
+
+      // setTimeout(() => {
+      //   d3.select("#graph").selectAll(".bg")
+      //     .transition(function() {
+      //       return d3.transition().duration(300)
+      //     })
+      //     .style("fill", "#cc2200")
+      // }, 30 * 2)
     },
     makeNodeLabel(index, x, y) {
       const xmlns = "http://www.w3.org/2000/svg"
@@ -252,27 +318,21 @@ export default {
       rect.setAttributeNS(null, "y", y + 7)
       rect.setAttributeNS(null, "width", width)
       rect.setAttributeNS(null, "height", height)
+      rect.classList.add("bg")
       return rect
     },
     makeStyling() {
-      const content = `
-          <![CDATA[
-              .shorthand {
-                  color: red;
-              }
-              circle.circleClass {
-                  stroke: #006600;
-                  fill:   #cc0000;
-              }
-          ]]>
-      `
-      const xmlns = "http://www.w3.org/2000/svg"
-      const style = document.createElementNS(xmlns, "style")
-      // style.innerHTML = content
-      style.appendChild(document.createTextNode(content))
-      style.setAttributeNS(null, "type", "text/css")
-      console.log("STYLING", style)
-      return style
+      var svgElement = d3.select("#graph").node()
+      var ss = document.createElementNS("http://www.w3.org/2000/svg", "style");
+      svgElement.appendChild(ss);
+      var sheets = document.styleSheets,
+          sheet;
+      for(var i=0, length=sheets.length; i<length; i++){
+        sheet=sheets.item(i);
+        if (sheet.ownerNode == ss) break;
+      }
+      sheet.insertRule(".shorthand { color: red; }", 0);
+      // sheet.insertRule("rect.bg { fill: #cc2200; }", 0);
     }
   },
   computed: {
